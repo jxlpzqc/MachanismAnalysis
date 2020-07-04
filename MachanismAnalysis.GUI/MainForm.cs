@@ -29,7 +29,9 @@ namespace MachanismAnalysis.GUI
 
             UpdateStyles();
 
-            Graphics = CreateGraphics();
+            //RealGraphics = CreateGraphics();
+            
+
 
             Timer.Tick += (obj,e) =>
             {
@@ -41,11 +43,12 @@ namespace MachanismAnalysis.GUI
 
         public Timer Timer { get; set; } = new Timer()
         {
-            Interval = 13            
+            Interval = 50            
         };
 
         private int realHeight = 100;
         private int realWidth = 100;
+
 
         private Point CreatePoint(double realX, double realY)
         {
@@ -85,14 +88,16 @@ namespace MachanismAnalysis.GUI
         }
 
 
-        private Graphics Graphics { get; }
+        private Graphics RealGraphics { get; }
 
+        private Bitmap bitmap;
+        private Graphics graphics;
 
 
 
         private void DrawFrame(double x,double y)
         {
-            Graphics.DrawArc(Pens.MechanismPen, new Rectangle(CreatePoint(x - 10, y - 10), new Size(10, 10)), 0, 360);
+            RealGraphics.DrawArc(Pens.MechanismPen, new Rectangle(CreatePoint(x - 10, y - 10), new Size(10, 10)), 0, 360);
 
 
 
@@ -100,11 +105,28 @@ namespace MachanismAnalysis.GUI
 
         public void Draw()
         {
-            Graphics.Clear(Color.White);
 
-            Graphics.DrawLine(new Pen(Color.Red) { 
-                Width = 20
-            }, CreatePoint(10, 20), CreatePoint(20, 30));
+            using (bitmap = new Bitmap(Width, Height)) 
+            { 
+                using(graphics = Graphics.FromImage(bitmap))
+                {
+
+                    graphics.Clear(Color.White);
+                    graphics.DrawLine(new Pen(Color.Red)
+                    {
+                        Width = 20
+                    }, CreatePoint(10, 20), CreatePoint(20, 30));
+
+                    CreateGraphics().DrawImage(bitmap,new Point { 
+                        X = 0,
+                        Y = 0
+                    });
+                    
+
+                }
+
+
+            }
 
 
         }
