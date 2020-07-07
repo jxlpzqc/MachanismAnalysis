@@ -16,7 +16,8 @@ void rrpk(int m, int  n1, int  n2, int n3, int  k1, int  k2, int  k3, double  r1
 	double p[][3], double vp[][3], double ap[][3]);
 
 void rprk(int m, int  n1, int n2, int  k1, int  k2, double  r1, double* r2,
-	double* vr2, double* ar2, double* t, double* w, double* e,
+	double* vr2, double* ar2,
+	double* t, double* w, double* e,
 	double p[][3], double vp[][3], double ap[][3]);
 
 

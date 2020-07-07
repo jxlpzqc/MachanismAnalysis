@@ -1,6 +1,8 @@
 ﻿using MachanismAnalysis.Core;
+using MachanismAnalysis.GUI.Properties;
 using System;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Point = System.Drawing.Point;
 
@@ -8,81 +10,10 @@ namespace MachanismAnalysis.GUI
 {
     class MainForm : Form
     {
-        private const int initHeight = 800;
-        private const int initWidth = 800;
+        #region Size of the canvas
 
-        private Caculator caculator = new Caculator(4, 3);
-
-        // TODO Local 
-        private double ppp = 0;
-
-        public MainForm()
-        {
-            Text = "机械原理课程设计 - 图形用户界面 - 程子丘";
-            Height = initHeight;
-            Width = initWidth;
-            BackColor = Color.White;
-
-            DoubleBuffered = true;
-            SetStyle(ControlStyles.UserPaint, true);
-            SetStyle(ControlStyles.AllPaintingInWmPaint, true);
-            SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
-            SetStyle(ControlStyles.ResizeRedraw, true);
-
-
-            UpdateStyles();
-
-            var s = new double[2][];
-
-            caculator.SetPointsPosition(0, 0, 0);
-            caculator.SetPointsVelocity(0, 0, 0);
-            caculator.SetPointsAcceleration(0, 0, 0);
-
-            caculator.SetPointsPosition(3, 50, 0);
-            caculator.SetPointsVelocity(3, 0, 0);
-            caculator.SetPointsAcceleration(3, 0, 0);
-
-            caculator.SetRodsAngularDisplacement(0, 0);
-            caculator.SetRodsAngularVelocity(0, 20);
-            caculator.SetRodsAngularVelocity(0, 0);
-
-            var arr = new int[] { 1, 2, 4 };
-
-            // TODO issue 尝试使用多线程可以解决用户消息响应缓慢问题 (application take long time to respond)
-
-            Timer.Tick += (obj, e) =>
-            {
-                ppp = (ppp + 0.05) % (2 * Math.PI);
-
-                caculator.SetRodsAngularDisplacement(0, ppp);
-                caculator.BarKinematic(0, 1, 0, 20, 0);
-                caculator.RRRKinematic(1, 1, 3, 2, 1, 2, 40, 30);
-
-
-                using (bitmap = new Bitmap(Width, Height))
-                {
-                    using (graphics = Graphics.FromImage(bitmap))
-                    {
-                        // 开始绘图
-                        Draw();
-                        // 应用绘图
-                        CreateGraphics().DrawImage(bitmap, new System.Drawing.Point
-                        {
-                            X = 0,
-                            Y = 0
-                        });
-
-
-                    }
-                }
-            };
-            Timer.Start();
-        }
-
-        public Timer Timer { get; set; } = new Timer()
-        {
-            Interval = 20
-        };
+        private const int initHeight = 768;
+        private const int initWidth = 1024;
 
         private float RealHeight
         {
@@ -100,40 +31,170 @@ namespace MachanismAnalysis.GUI
             }
         }
 
-        private float maxY = 80;
-        private float minY = -50;
-        private float maxX = 80;
-        private float minX = -50;
+        private float maxY = 1000;
+        private float minY = -200;
+        private float maxX = 1200;
+        private float minX = -400;
 
+        #endregion
 
-        private System.Drawing.Point CreatePoint(float realX, float realY)
+        #region Member fields and properties
+
+        private Caculator caculator = new Caculator(6, 6);
+
+        private Bitmap bitmap;
+        private Graphics graphics;
+        private PointChartForm chart;
+
+        public Timer Timer { get; set; } = new Timer()
         {
-            return new System.Drawing.Point()
+            Interval = 20
+        };
+
+
+        #endregion
+
+        #region Some constances of machanism design
+
+        private const double lenO1A = 90.52;
+        private const double lenO2B = 552.34;
+        private const double rate = 0.32;
+        private const double heightDC = (538 + lenO2B) / 2;
+
+        #endregion
+
+
+
+        // current angular position
+        private double currentPosition = 0;
+
+
+        /// <summary>
+        /// Constructor of main window
+        /// </summary>
+        /// <param name="speed">主动件运动速度，unit -> r/min</param>
+        public MainForm(double speed = 1000)
+        {
+            #region 初始化窗体属性
+            Text = "机械原理课程设计 - 程子丘 - 图形用户界面 ";
+            Height = initHeight;
+            Width = initWidth;
+            BackColor = Color.White;
+
+            DoubleBuffered = true;
+            SetStyle(ControlStyles.UserPaint, true);
+            SetStyle(ControlStyles.AllPaintingInWmPaint, true);
+            SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
+            SetStyle(ControlStyles.ResizeRedraw, true);
+
+            Icon = Resources.MainIcon;
+
+            UpdateStyles();
+
+
+            MaximumSize = new Size(initWidth, initHeight);
+            MinimumSize = new Size(initWidth, initHeight);
+
+
+
+            var btn = new Button()
+            {
+                Size = new Size(80, 40),
+                Text = "播放/暂停",
+                Location = new Point(initWidth - 180, initHeight - 140),
+
+                Anchor = AnchorStyles.Right | AnchorStyles.Bottom,
+            };
+
+            Controls.Add(btn);
+            btn.Click += (o, e) =>
+            {
+                Toggle();
+            };
+
+
+            chart = new PointChartForm();
+            chart.Show(this);
+
+
+
+            #endregion
+
+            // 由 r/min -> rad/s
+            var rad = speed / 60 * 2 * Math.PI;
+
+            // 初始化 点信息 和主动件信息
+            InitializeInfoes(rad);
+
+
+
+
+            // TODO issue 尝试使用多线程可以解决用户消息响应缓慢问题 (application take long time to respond)
+            Timer.Tick += (obj, e) =>
+            {
+
+                currentPosition = (currentPosition - 0.05) % (2 * Math.PI);
+                CaculateKinematicInfo();
+
+                using (bitmap = new Bitmap(Width, Height))
+                {
+                    using (graphics = Graphics.FromImage(bitmap))
+                    {
+                        // 开始绘图
+                        Draw();
+
+                        Invoke(new Action(() =>
+                        {
+
+
+                                // 应用绘图
+                                CreateGraphics().DrawImage(bitmap, new System.Drawing.Point
+                            {
+                                X = 0,
+                                Y = 0
+                            });
+                        }));
+
+
+                    }
+                }
+
+
+
+            };
+
+
+            Console.WriteLine("程序初始化完成");
+
+            Timer.Start();
+        }
+
+        #region 坐标转换
+
+        private Point CreatePoint(float realX, float realY)
+        {
+            return new Point()
             {
                 X = (int)ConvertToScreenX(realX),
                 Y = (int)ConvertToScreenY(realY)
             };
         }
 
-        private PointF CreatePointF(float realX, float realY)
+        private PointF CreatePointF(double realX, double realY)
         {
             return new PointF()
             {
-                X = (float)ConvertToScreenX(realX),
-                Y = (float)ConvertToScreenY(realY)
+                X = ConvertToScreenX(realX),
+                Y = ConvertToScreenY(realY)
             };
         }
 
         private PointF CreatePointF(Core.Point p)
         {
-            return new PointF()
-            {
-                X = (float)ConvertToScreenX((float)p.x),
-                Y = (float)ConvertToScreenY((float)p.y)
-            };
+            return CreatePointF(p.x, p.y);
         }
 
-        private float ConvertToScreenY(float realY)
+        private float ConvertToScreenY(double realY)
         {
             // 坐标系转换
 
@@ -141,11 +202,11 @@ namespace MachanismAnalysis.GUI
             // 实际坐标 是 原点偏移 ( Height - (0-minY) * Height/(maxY-minY)) - (realY) * Height/(maxY-minY)
 
             var ratio = Height / (maxY - minY);
-            return Height + (minY - realY) * ratio;
+            return Height + (minY - (float)realY) * ratio;
 
         }
 
-        private float ConvertToScreenX(float realX)
+        private float ConvertToScreenX(double realX)
         {
 
             // 坐标系转换
@@ -154,22 +215,38 @@ namespace MachanismAnalysis.GUI
             // 实际坐标 是 原点偏移 ( -minX * ratio + realX * ratio)
 
             var ratio = Width / (maxX - minX);
-            return (realX - minX) * ratio;
+            return ((float)realX - minX) * ratio;
 
         }
 
+        private PointF RotatePoint(PointF origin, PointF delta, double angle)
+        {
+            var x = origin.X;
+            var y = origin.Y;
+            var dx = delta.X;
+            var dy = delta.Y;
+
+            var newx = x + dx * Math.Sin(angle) - dy * Math.Cos(angle);
+            var newy = y + dy * Math.Sin(angle) + dx * Math.Cos(angle);
+            return new PointF((float)newx, (float)newy);
+
+        }
+
+        #endregion
+
+        #region 预置画笔和画刷
 
         /// <summary>
         /// 画笔静态类，用来画轮廓
         /// </summary>
         private static class Pens
         {
-            public static Pen MechanismPen = new Pen(Color.Black, 3);
-            public static Pen RodPen = new Pen(Color.Gray, 15) { 
-                
+            public static readonly Pen MechanismPen = new Pen(Color.Black, 3);
+            public static readonly Pen RodPen = new Pen(Color.FromArgb(180,0,0,0), 15)
+            {
                 DashStyle = System.Drawing.Drawing2D.DashStyle.Solid,
-                
-         
+
+
             };
 
         }
@@ -180,33 +257,85 @@ namespace MachanismAnalysis.GUI
         private static class Brushes
         {
 
-            public static Brush RevolveBrush = new SolidBrush(Color.Red);
+            public static readonly Brush RevolveBrush = new SolidBrush(Color.White);
+            public static readonly Brush MoveBrush = new SolidBrush(Color.LightYellow);
+            public static readonly Brush TextBrush = new SolidBrush(Color.FromArgb(200, 255, 0, 0));
 
         }
 
-        /// <summary>
-        /// 根据图像指定画布大小
-        /// </summary>
-        private void DetermineCanvasSize()
+        #endregion
+
+        ///// <summary>
+        ///// 根据图像指定画布大小
+        ///// </summary>
+        //private void DetermineCanvasSize()
+        //{
+        //    // TODO 完成他
+
+        //}
+
+        #region 播放状态控制
+
+        public void Pause()
         {
-            // TODO 完成他
+            Timer.Stop();
+        }
 
+        public void Play()
+        {
+            Timer.Start();
         }
 
 
+        public void Toggle()
+        {
+            if (Timer.Enabled)
+            {
+                Pause();
+            }
+            else
+            {
+                Play();
+            }
 
-        private Bitmap bitmap;
-        private Graphics graphics;
+        }
+
+        #endregion
+
+        #region 绘图核心
+
+        private void DrawRod(Core.Point a, Core.Point b,Pen pen = null)
+        {
+            if (pen == null) pen = Pens.RodPen;
+
+            graphics.DrawLine(pen, CreatePointF(a), CreatePointF(b));
+        }
+              
 
 
-        private void DrawRod(Core.Point a, Core.Point b)
+        private void DrawPrismaticPair(Core.Point p, double angle)
         {
 
-            graphics.DrawLine(Pens.RodPen, CreatePointF(a), CreatePointF(b));
+
+            var points = new PointF[]
+            {
+                RotatePoint(CreatePointF(p),new PointF(10, 20),angle),
+                RotatePoint(CreatePointF(p),new PointF(10, -20),angle),
+                RotatePoint(CreatePointF(p),new PointF(-10, -20),angle),
+                RotatePoint(CreatePointF(p),new PointF(-10, 20),angle),
+                RotatePoint(CreatePointF(p),new PointF(10, 20),angle),
+
+            };
+
+            graphics.DrawPolygon(Pens.MechanismPen, points);
+
+            graphics.FillPolygon(Brushes.MoveBrush, points);
+
+
         }
 
 
-        private void DrawPoint(Core.Point p)
+        private void DrawRevolutePair(Core.Point p, int? n = null)
         {
 
             float x = (float)p.x;
@@ -224,9 +353,74 @@ namespace MachanismAnalysis.GUI
                 Y = (int)ConvertToScreenY(y) - 8
             }, new Size(16, 16)));
 
+            if (n != null)
+            {
+                graphics.DrawString(n.ToString(), new Font("Microsoft Yahei", 14), Brushes.TextBrush, new PointF
+                {
+
+                    X = (int)ConvertToScreenX(x) + 20,
+                    Y = (int)ConvertToScreenY(y)
+                });
+            }
 
 
         }
+
+
+        private void DrawPrismaticFrame(Core.Point p)
+        {
+
+            float x = (float)p.x;
+            float y = (float)p.y;
+
+            int len = 100;
+            int width = 22;
+
+            graphics.DrawLine(Pens.MechanismPen,
+                new PointF
+                {
+                    X = ConvertToScreenX(x) - len / 2,
+                    Y = ConvertToScreenY(y) - width / 2
+                },
+                // 作等边三角形
+                new PointF
+                {
+                    X = ConvertToScreenX(x) + len / 2,
+                    Y = ConvertToScreenY(y) - width / 2
+                }
+            );
+
+
+            graphics.DrawLine(Pens.MechanismPen,
+                new PointF
+                {
+                    X = ConvertToScreenX(x) - len / 2,
+                    Y = ConvertToScreenY(y) + width / 2
+                },
+                // 作等边三角形
+                new PointF
+                {
+                    X = ConvertToScreenX(x) + len / 2,
+                    Y = ConvertToScreenY(y) + width / 2
+                }
+            );
+
+
+
+            var nx = ConvertToScreenX(x) - len / 2;
+            var ny1 = ConvertToScreenY(y) + width / 2;
+            var ny2 = ConvertToScreenY(y) - width / 2;
+            int n = 10;
+            for (int i = 0; i <= n; i++)
+            {
+                graphics.DrawLine(Pens.MechanismPen, new PointF(nx, ny1), new PointF(nx - 5, ny1 + 8));
+                graphics.DrawLine(Pens.MechanismPen, new PointF(nx, ny2), new PointF(nx + 5, ny2 - 8));
+                nx += len / n;
+            }
+
+
+        }
+
 
         private void DrawFrame(Core.Point p)
         {
@@ -264,7 +458,7 @@ namespace MachanismAnalysis.GUI
             );
 
 
-            DrawPoint(p);
+            DrawRevolutePair(p);
 
             var nx = ConvertToScreenX(x) - w / 2;
             var ny = ConvertToScreenY(y) + h;
@@ -279,28 +473,129 @@ namespace MachanismAnalysis.GUI
         }
 
 
-        private void DrawRRR()
+
+        private void DrawPointChart(int n)
         {
+            var num = Math.Abs(currentPosition);
+
+            chart.AddPoint(num, caculator.GetPointsPosition(n), caculator.GetPointsVelocity(n), caculator.GetPointsAcceleration(n), num < 0.06);
 
         }
 
 
-        public void Draw()
+        #endregion
+
+        #region 业务逻辑
+
+        private void InitializeInfoes(double rad)
+        {
+            caculator.SetPointsPosition(0, 0, 0);
+            caculator.SetPointsVelocity(0, 0, 0);
+            caculator.SetPointsAcceleration(0, 0, 0);
+
+            caculator.SetPointsPosition(1, 0, 400);
+            caculator.SetPointsVelocity(1, 0, 0);
+            caculator.SetPointsAcceleration(1, 0, 0);
+
+
+            caculator.SetPointsPosition(5, 0, heightDC);
+            caculator.SetPointsVelocity(5, 0, 0);
+            caculator.SetPointsAcceleration(5, 0, 0);
+
+
+            caculator.SetRodsAngularDisplacement(0, 0);
+            caculator.SetRodsAngularVelocity(0, rad);
+            caculator.SetRodsAngularAcceleration(0, 0);
+
+            caculator.SetRodsAngularDisplacement(5, 0);
+            caculator.SetRodsAngularVelocity(5, 0);
+            caculator.SetRodsAngularAcceleration(5, 0);
+        }
+
+        private void CaculateKinematicInfo()
+        {
+            // 设置值
+            caculator.SetRodsAngularDisplacement(0, currentPosition);
+
+            // 主动件
+            caculator.BarKinematic(1, 2, 0, lenO1A, 0);
+
+
+            // RPR杆组
+            double r2 = 0, vr2 = 0, ar2 = 0;
+
+            caculator.RPRKinematic(1, 0, 2, 1, 2, 0, ref r2, ref vr2, ref ar2);
+
+            // 求4点
+
+            caculator.BasicPointKinematic(0, 3, 1, lenO2B);
+
+            //var theta = caculator.GetRodsAngularDisplacement(1);
+            //var p1 = caculator.GetPointsPosition(0);
+            //var OB_2 = lenOB_2;
+            //var O_1A = lenO_1A;
+
+
+            //caculator.SetPointsPosition(3, p1.x + OB_2 * Math.Cos(theta), p1.y + OB_2 * Math.Sin(theta));
+            //caculator.SetPointsVelocity(3, p1.x + OB_2 * Math.Cos(theta), p1.y + OB_2 * Math.Sin(theta));
+            //caculator.SetPointsAcceleration(3, p1.x + OB_2 * Math.Cos(theta), p1.y + OB_2 * Math.Sin(theta));
+
+
+
+            // RRP杆组
+            double r2_ = 0, vr2_ = 0, ar2_ = 0;
+
+            caculator.RRPKinematic(1, 3, 5, 4, 3, 4, 5, lenO2B * rate, ref r2_, ref vr2_, ref ar2_);
+
+            caculator.PrintPointInfo(4);
+
+            DrawPointChart(4);
+        }
+
+        private void Draw()
         {
 
             graphics.Clear(Color.White);
 
-            DrawRod(caculator.GetPointsPosition(0), caculator.GetPointsPosition(1));
             DrawRod(caculator.GetPointsPosition(1), caculator.GetPointsPosition(2));
-            DrawRod(caculator.GetPointsPosition(2), caculator.GetPointsPosition(3));
 
-            DrawPoint(caculator.GetPointsPosition(1));
-            DrawPoint(caculator.GetPointsPosition(2));
+            DrawRod(caculator.GetPointsPosition(0), caculator.GetPointsPosition(3));
+
+
+            //画水平杆
+            var p5 = caculator.GetPointsPosition(4);
+
+            DrawRod(new Core.Point
+            {
+                x = p5.x - 200,
+                y = p5.y
+            }, new Core.Point
+            {
+                x = p5.x + 300,
+                y = p5.y
+            });
+
+
+            DrawRod(caculator.GetPointsPosition(3), caculator.GetPointsPosition(4));
 
             DrawFrame(caculator.GetPointsPosition(0));
-            DrawFrame(caculator.GetPointsPosition(3));
+
+            DrawFrame(caculator.GetPointsPosition(1));
+
+            DrawPrismaticFrame(caculator.GetPointsPosition(5));
+
+            DrawPrismaticPair(caculator.GetPointsPosition(2), caculator.GetRodsAngularDisplacement(1));
+
+            DrawRevolutePair(caculator.GetPointsPosition(2), 3);
+
+            DrawRevolutePair(caculator.GetPointsPosition(3), 4);
+
+            DrawRevolutePair(caculator.GetPointsPosition(4), 5);
+
+
         }
 
+        #endregion
 
     }
 }
