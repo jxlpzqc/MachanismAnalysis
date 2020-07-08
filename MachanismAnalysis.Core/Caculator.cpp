@@ -90,6 +90,7 @@ void MachanismAnalysis::Core::Caculator::SetPointsAcceleration(int n, double x, 
 	pointsAcceleration[n][2] = y;
 }
 
+
 Point^ MachanismAnalysis::Core::Caculator::GetPointsPosition(int n)
 {
 	auto p = gcnew Point();
@@ -144,10 +145,33 @@ double MachanismAnalysis::Core::Caculator::GetRodsAngularAcceleration(int k)
 	return rodsAngularAcceleration[k];
 }
 
+void MachanismAnalysis::Core::Caculator::ConfigurePoint(int n, Point^ pos, Point^ vel, Point^ acc)
+{
+	SetPointsPosition(n, pos->x, pos->y);
+	SetPointsVelocity(n, vel->x, vel->y);
+	SetPointsAcceleration(n, acc->x, acc->y);
+
+}
+
+void MachanismAnalysis::Core::Caculator::ConfigurePoint(int n,
+	double posX, double posY, double velX, double velY, double accX, double accY)
+{
+	SetPointsPosition(n, posX, posY);
+	SetPointsVelocity(n, velX, velY);
+	SetPointsAcceleration(n, accX, accY);
+}
+
+void MachanismAnalysis::Core::Caculator::ConfigureRod(int k, double pos, double vel, double acc)
+{
+	SetRodsAngularDisplacement(k, pos);
+	SetRodsAngularVelocity(k, vel);
+	SetRodsAngularAcceleration(k, acc);
+}
+
 void MachanismAnalysis::Core::Caculator::PrintPointInfo(int n)
 {
 	char buff[1024];
-	sprintf_s<1024>(buff, "点%d\t位置 (%8.2lf,%8.2f)\t速度 (%8.2lf,%8.2lf)\t加速度 (%8.2lf,%8.2lf)\n", n + 1,
+	sprintf_s<1024>(buff, "点%d\t位置 (%8.2lf,%8.2f)\t速度 (%8.2lf,%8.2lf)\t加速度 (%8.2lf,%8.2lf)\n", n,
 		pointsPosition[n][1], pointsPosition[n][2],
 		pointsVelocity[n][1], pointsVelocity[n][2],
 		pointsAcceleration[n][1], pointsAcceleration[n][2]);
@@ -160,7 +184,7 @@ void MachanismAnalysis::Core::Caculator::PrintRodInfo(int k)
 {
 
 	char buff[1024];
-	sprintf_s<1024>(buff, "杆%d\t位置 %.4lf(rad)\t速度 %.4lf(rad/s)\t加速度 %.4lf(rad/s^2)\n", k + 1,
+	sprintf_s<1024>(buff, "杆%d\t位置 %.4lf(rad)\t速度 %.4lf(rad/s)\t加速度 %.4lf(rad/s^2)\n", k,
 		rodsAngularDisplacement[k], rodsAngularVelocity[k], rodsAngularAcceleration[k]);
 
 	System::Console::Write(gcnew System::String(buff));
@@ -173,15 +197,16 @@ MachanismAnalysis::Core::Caculator::Caculator()
 
 MachanismAnalysis::Core::Caculator::Caculator(int pNum, int rNum)
 {
+	pointsNum = pNum;
+	rodsNum = rNum;
+	pNum++;
+	rNum++;
 	pointsPosition = new double[pNum][3];
 	pointsVelocity = new double[pNum][3];
 	pointsAcceleration = new double[pNum][3];
 	rodsAngularAcceleration = new double[rNum];
 	rodsAngularDisplacement = new double[rNum];
 	rodsAngularVelocity = new double[rNum];
-	pointsNum = pNum;
-	rodsNum = rNum;
-
 }
 
 MachanismAnalysis::Core::Caculator::~Caculator()

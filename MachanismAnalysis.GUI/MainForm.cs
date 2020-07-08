@@ -31,9 +31,9 @@ namespace MachanismAnalysis.GUI
             }
         }
 
-        private float maxY = 1000;
+        private float maxY = 700;
         private float minY = -200;
-        private float maxX = 1200;
+        private float maxX = 800;
         private float minX = -400;
 
         #endregion
@@ -127,7 +127,12 @@ namespace MachanismAnalysis.GUI
             InitializeInfoes(rad);
 
 
+            bitmap = new Bitmap(Width, Height);
 
+            graphics = Graphics.FromImage(bitmap);
+            
+            // 开启抗锯齿
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
             // TODO issue 尝试使用多线程可以解决用户消息响应缓慢问题 (application take long time to respond)
             Timer.Tick += (obj, e) =>
@@ -136,30 +141,12 @@ namespace MachanismAnalysis.GUI
                 currentPosition = (currentPosition - 0.05) % (2 * Math.PI);
                 CaculateKinematicInfo();
 
-                using (bitmap = new Bitmap(Width, Height))
-                {
-                    using (graphics = Graphics.FromImage(bitmap))
-                    {
-                        // 开始绘图
-                        Draw();
+                // 开始绘图
+                Draw();
 
-                        Invoke(new Action(() =>
-                        {
-
-
-                                // 应用绘图
-                                CreateGraphics().DrawImage(bitmap, new System.Drawing.Point
-                            {
-                                X = 0,
-                                Y = 0
-                            });
-                        }));
-
-
-                    }
-                }
-
-
+                // 双缓冲
+                Invalidate(new Rectangle(0, 0, Width, Height));
+                Update();
 
             };
 
@@ -168,6 +155,22 @@ namespace MachanismAnalysis.GUI
 
             Timer.Start();
         }
+
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            if (bitmap == null) return;
+            var screenG = e.Graphics;
+            screenG.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+            screenG.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+            screenG.DrawImage(bitmap, new System.Drawing.Point
+            {
+                X = 0,
+                Y = 0
+            });
+
+        }
+
 
         #region 坐标转换
 
@@ -311,8 +314,6 @@ namespace MachanismAnalysis.GUI
             graphics.DrawLine(pen, CreatePointF(a), CreatePointF(b));
         }
               
-
-
         private void DrawPrismaticPair(Core.Point p, double angle)
         {
 
@@ -333,7 +334,6 @@ namespace MachanismAnalysis.GUI
 
 
         }
-
 
         private void DrawRevolutePair(Core.Point p, int? n = null)
         {
@@ -365,7 +365,6 @@ namespace MachanismAnalysis.GUI
 
 
         }
-
 
         private void DrawPrismaticFrame(Core.Point p)
         {
@@ -421,8 +420,7 @@ namespace MachanismAnalysis.GUI
 
         }
 
-
-        private void DrawFrame(Core.Point p)
+        private void DrawFrame(Core.Point p,int? num = null)
         {
 
             float x = (float)p.x;
@@ -458,7 +456,7 @@ namespace MachanismAnalysis.GUI
             );
 
 
-            DrawRevolutePair(p);
+            DrawRevolutePair(p, num);
 
             var nx = ConvertToScreenX(x) - w / 2;
             var ny = ConvertToScreenY(y) + h;
@@ -473,6 +471,41 @@ namespace MachanismAnalysis.GUI
         }
 
 
+        #endregion
+
+        #region 绘图重载封装
+
+        private void DrawRod(int n1, int n2)
+        {
+            DrawRod(caculator.GetPointsPosition(n1), caculator.GetPointsPosition(n2));
+        }
+
+        private void DrawRevolutePair(int n)
+        {
+            DrawRevolutePair(caculator.GetPointsPosition(n), n);
+        }
+
+        private void DrawPrismaticFrame(int n)
+        {
+            DrawPrismaticFrame(caculator.GetPointsPosition(n));
+        }
+
+        private void DrawFrame(int n)
+        {
+            DrawFrame(caculator.GetPointsPosition(n),n);
+        }
+
+        private void DrawPrismaticPair(int n,int p)
+        {
+
+            DrawPrismaticPair(caculator.GetPointsPosition(n), caculator.GetRodsAngularDisplacement(p));
+
+        }
+
+
+        #endregion
+
+
 
         private void DrawPointChart(int n)
         {
@@ -483,52 +516,43 @@ namespace MachanismAnalysis.GUI
         }
 
 
-        #endregion
+
+
+
+
 
         #region 业务逻辑
 
         private void InitializeInfoes(double rad)
         {
-            caculator.SetPointsPosition(0, 0, 0);
-            caculator.SetPointsVelocity(0, 0, 0);
-            caculator.SetPointsAcceleration(0, 0, 0);
+            caculator.ConfigurePoint(1, 0, 0, 0, 0, 0, 0);
 
-            caculator.SetPointsPosition(1, 0, 400);
-            caculator.SetPointsVelocity(1, 0, 0);
-            caculator.SetPointsAcceleration(1, 0, 0);
+            caculator.ConfigurePoint(2, 0, 400, 0, 0, 0, 0);
 
+            caculator.ConfigurePoint(6, 0, heightDC, 0, 0, 0, 0);
 
-            caculator.SetPointsPosition(5, 0, heightDC);
-            caculator.SetPointsVelocity(5, 0, 0);
-            caculator.SetPointsAcceleration(5, 0, 0);
+            caculator.ConfigureRod(1, 0, rad, 0);
 
-
-            caculator.SetRodsAngularDisplacement(0, 0);
-            caculator.SetRodsAngularVelocity(0, rad);
-            caculator.SetRodsAngularAcceleration(0, 0);
-
-            caculator.SetRodsAngularDisplacement(5, 0);
-            caculator.SetRodsAngularVelocity(5, 0);
-            caculator.SetRodsAngularAcceleration(5, 0);
+            caculator.ConfigureRod(6, 0, 0, 0);
         }
 
         private void CaculateKinematicInfo()
         {
             // 设置值
-            caculator.SetRodsAngularDisplacement(0, currentPosition);
+            caculator.SetRodsAngularDisplacement(1, currentPosition);
 
             // 主动件
-            caculator.BarKinematic(1, 2, 0, lenO1A, 0);
+            caculator.BarKinematic(2, 3, 1, lenO1A, 0);
 
 
             // RPR杆组
             double r2 = 0, vr2 = 0, ar2 = 0;
 
-            caculator.RPRKinematic(1, 0, 2, 1, 2, 0, ref r2, ref vr2, ref ar2);
+            caculator.RPRKinematic(1, 1, 3, 2, 3, 1, ref r2, ref vr2, ref ar2);
 
             // 求4点
 
-            caculator.BasicPointKinematic(0, 3, 1, lenO2B);
+            caculator.BasicPointKinematic(1, 4, 2, lenO2B);
 
             //var theta = caculator.GetRodsAngularDisplacement(1);
             //var p1 = caculator.GetPointsPosition(0);
@@ -545,11 +569,11 @@ namespace MachanismAnalysis.GUI
             // RRP杆组
             double r2_ = 0, vr2_ = 0, ar2_ = 0;
 
-            caculator.RRPKinematic(1, 3, 5, 4, 3, 4, 5, lenO2B * rate, ref r2_, ref vr2_, ref ar2_);
+            caculator.RRPKinematic(1, 4, 6, 5, 4, 5, 6, lenO2B * rate, ref r2_, ref vr2_, ref ar2_);
 
-            caculator.PrintPointInfo(4);
+            caculator.PrintPointInfo(5);
 
-            DrawPointChart(4);
+            DrawPointChart(5);
         }
 
         private void Draw()
@@ -557,13 +581,13 @@ namespace MachanismAnalysis.GUI
 
             graphics.Clear(Color.White);
 
-            DrawRod(caculator.GetPointsPosition(1), caculator.GetPointsPosition(2));
+            DrawRod(2,3);
 
-            DrawRod(caculator.GetPointsPosition(0), caculator.GetPointsPosition(3));
+            DrawRod(1,4);
 
 
             //画水平杆
-            var p5 = caculator.GetPointsPosition(4);
+            var p5 = caculator.GetPointsPosition(5);
 
             DrawRod(new Core.Point
             {
@@ -576,21 +600,21 @@ namespace MachanismAnalysis.GUI
             });
 
 
-            DrawRod(caculator.GetPointsPosition(3), caculator.GetPointsPosition(4));
+            DrawRod(4,5);
 
-            DrawFrame(caculator.GetPointsPosition(0));
+            DrawFrame(1);
 
-            DrawFrame(caculator.GetPointsPosition(1));
+            DrawFrame(2);
 
-            DrawPrismaticFrame(caculator.GetPointsPosition(5));
+            DrawPrismaticFrame(6);
 
-            DrawPrismaticPair(caculator.GetPointsPosition(2), caculator.GetRodsAngularDisplacement(1));
+            DrawPrismaticPair(3,2);
 
-            DrawRevolutePair(caculator.GetPointsPosition(2), 3);
+            DrawRevolutePair(3);
 
-            DrawRevolutePair(caculator.GetPointsPosition(3), 4);
+            DrawRevolutePair(4);
 
-            DrawRevolutePair(caculator.GetPointsPosition(4), 5);
+            DrawRevolutePair(5);
 
 
         }

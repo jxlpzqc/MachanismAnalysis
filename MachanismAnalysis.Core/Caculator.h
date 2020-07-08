@@ -14,7 +14,7 @@ namespace MachanismAnalysis {
 			void RRPKinematic(int m, int n1, int n2, int n3, int k1, int k2, int k3, double r1, double% r2, double% vr2, double% ar2);
 			
 			/// <summary>
-			/// 基点法求点位置、速度、加速度，和Bark相同
+			/// 基点法求点位置、速度、加速度   [和Bark相同]
 			/// </summary>
 			/// <param name="nBasic">基点ID</param>
 			/// <param name="nToCompute">代求点ID</param>
@@ -38,6 +38,11 @@ namespace MachanismAnalysis {
 			double GetRodsAngularDisplacement(int k);
 			double GetRodsAngularVelocity(int k);
 			double GetRodsAngularAcceleration(int k);
+			
+			void ConfigurePoint(int n, Point^ pos, Point^ vel, Point^ acc);
+			void ConfigurePoint(int n, double posX, double posY, double velX, double velY, double accX, double accY);
+			void ConfigureRod(int k, double pos, double vel, double acc);
+
 			void PrintPointInfo(int n);
 			void PrintRodInfo(int k);
 

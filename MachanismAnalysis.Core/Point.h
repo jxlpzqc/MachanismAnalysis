@@ -5,6 +5,8 @@ namespace MachanismAnalysis {
 		public:
 			double x;
 			double y;
+			Point(double x, double y);
+			Point();
 		};
 	
 	}
