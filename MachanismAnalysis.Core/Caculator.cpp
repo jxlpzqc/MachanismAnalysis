@@ -6,6 +6,18 @@
 
 using namespace MachanismAnalysis::Core;
 
+
+void extf(double p[][3], double vp[][3], double ap[][3], double* t, double* w, double* e, int nexf, double fe[][3])
+{
+	if (vp[nexf][1] > 0 && p[nexf][1] > 0.0625 && p[nexf][1] < 0.2875)
+		fe[nexf][1] = -5200;
+	else
+		fe[nexf][1] = 0;
+	fe[nexf][2] = 0.0;
+}
+
+
+
 void MachanismAnalysis::Core::Caculator::BarKinematic(int n1, int n2, int k, double r1, double gam)
 {
 	bark(n1, n2, k, r1, gam, rodsAngularDisplacement,
@@ -70,6 +82,44 @@ void MachanismAnalysis::Core::Caculator::BasicPointKinematic(int nBasic, int nTo
 	// Migrate to core C library like this.
 	//this->BarKinematic(nBasic, nTocompute, p, len, 0);
 
+}
+
+void MachanismAnalysis::Core::Caculator::BarForce(int n1, int ns1, int nn1, int k1)
+{
+	double _tb;
+	barf(n1, ns1, nn1, k1, pointsPosition, pointsAcceleration, rodsAngularAcceleration, pointsForce, &_tb);
+	framesMoment[n1] = _tb;
+}
+
+void MachanismAnalysis::Core::Caculator::RPRForce(int n1, int n2, int ns1, int ns2, int nn1, int nn2, int nexf, int k1, int k2)
+{
+	//TODO: return prismatic position and force
+				
+	//an unused var
+	double fk[20][3];
+	double pk[20][3];
+	rprf(n1, n2, ns1, ns2, nn1, nn2, nexf, k1, k2, pointsPosition, pointsVelocity, pointsAcceleration
+		, rodsAngularDisplacement, rodsAngularVelocity, rodsAngularAcceleration,
+		pointsForce, fk, pk, extf);
+
+}
+
+void MachanismAnalysis::Core::Caculator::RRPForce(int n1, int n2, int n3, int ns1, int ns2, int nn1, int nn2, int nexf, int k1, int k2)
+{
+	rrpf(n1, n2, n3, ns1, ns2, nn1, nn2, nexf, k1, k2,
+		pointsPosition, pointsVelocity, pointsAcceleration
+		, rodsAngularDisplacement, rodsAngularVelocity, rodsAngularAcceleration,
+		pointsForce, extf);
+}
+
+void MachanismAnalysis::Core::Caculator::SetPointMass(int n, double mass)
+{
+	sm[n] = mass;
+}
+
+void MachanismAnalysis::Core::Caculator::SetRodJ(int k, double j)
+{
+	sj[k] = j;
 }
 
 void MachanismAnalysis::Core::Caculator::SetPointsPosition(int n, double x, double y)
@@ -145,6 +195,22 @@ double MachanismAnalysis::Core::Caculator::GetRodsAngularAcceleration(int k)
 	return rodsAngularAcceleration[k];
 }
 
+void MachanismAnalysis::Core::Caculator::SetPointForce(int n, double x, double y)
+{
+	pointsForce[n][1] = x;
+	pointsForce[n][2] = y;
+}
+
+Point^ MachanismAnalysis::Core::Caculator::GetPointForce(int n)
+{
+	return gcnew Point(pointsForce[n][1], pointsForce[n][2]);
+}
+
+double MachanismAnalysis::Core::Caculator::GetFrameMoment(int n)
+{
+	return framesMoment[n];
+}
+
 void MachanismAnalysis::Core::Caculator::ConfigurePoint(int n, Point^ pos, Point^ vel, Point^ acc)
 {
 	SetPointsPosition(n, pos->x, pos->y);
@@ -204,6 +270,12 @@ MachanismAnalysis::Core::Caculator::Caculator(int pNum, int rNum)
 	pointsPosition = new double[pNum][3];
 	pointsVelocity = new double[pNum][3];
 	pointsAcceleration = new double[pNum][3];
+	pointsForce = new double[pNum][3];
+	framesMoment = new double[pNum];
+
+	memset(pointsForce, 0, sizeof(*pointsForce) * pNum);
+
+
 	rodsAngularAcceleration = new double[rNum];
 	rodsAngularDisplacement = new double[rNum];
 	rodsAngularVelocity = new double[rNum];
@@ -214,6 +286,9 @@ MachanismAnalysis::Core::Caculator::~Caculator()
 	delete[] pointsPosition;
 	delete[] pointsVelocity;
 	delete[] pointsAcceleration;
+	delete[] pointsForce;
+	delete[] framesMoment;
+
 	delete[] rodsAngularAcceleration;
 	delete[] rodsAngularDisplacement;
 	delete[] rodsAngularVelocity;

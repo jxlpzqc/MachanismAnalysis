@@ -1,8 +1,8 @@
 ﻿using MachanismAnalysis.Core;
 using MachanismAnalysis.GUI.Properties;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using Point = System.Drawing.Point;
 
@@ -10,7 +10,7 @@ namespace MachanismAnalysis.GUI
 {
     class MainForm : Form
     {
-        #region Size of the canvas
+        #region Some constances of the canvas
 
         private const int initHeight = 768;
         private const int initWidth = 1024;
@@ -31,20 +31,28 @@ namespace MachanismAnalysis.GUI
             }
         }
 
-        private float maxY = 700;
-        private float minY = -200;
-        private float maxX = 800;
-        private float minX = -400;
+        private float maxY = 700 / 1000f;
+        private float minY = -200 / 1000f;
+        private float maxX = 800 / 1000f;
+        private float minX = -400 / 1000f;
+
+        private const string textFamilyName = "Microsoft Yahei";
+        private const float forceRate = 0.00004f;
+        private const float momentCircle = 1000f;
 
         #endregion
 
         #region Member fields and properties
 
-        private Caculator caculator = new Caculator(6, 6);
+        private Caculator caculator = new Caculator(20, 20);
 
         private Bitmap bitmap;
         private Graphics graphics;
         private PointChartForm chart;
+        private CommonChartForm chartForce;
+        private CommonChartForm chartMoment;
+
+        private Dictionary<int,PointWatchForm> watchForms = new Dictionary<int, PointWatchForm>();
 
         public Timer Timer { get; set; } = new Timer()
         {
@@ -56,10 +64,11 @@ namespace MachanismAnalysis.GUI
 
         #region Some constances of machanism design
 
-        private const double lenO1A = 90.52;
-        private const double lenO2B = 552.34;
+        private const double lenO1A = 90.52 / 1000.0;
+        private const double lenO2B = 552.34 / 1000.0;
         private const double rate = 0.32;
-        private const double heightDC = (538 + lenO2B) / 2;
+        private const double heightDC = (538 / 1000.0 + lenO2B) / 2 ;
+        private const double lenO1O2 = 400.0 / 1000.0;
 
         #endregion
 
@@ -95,7 +104,7 @@ namespace MachanismAnalysis.GUI
             MaximumSize = new Size(initWidth, initHeight);
             MinimumSize = new Size(initWidth, initHeight);
 
-
+           
 
             var btn = new Button()
             {
@@ -116,7 +125,19 @@ namespace MachanismAnalysis.GUI
             chart = new PointChartForm();
             chart.Show(this);
 
+            chartForce = new CommonChartForm("力大小", new string[]
+            {
+                "1点力",
+                "2点力"
+            }, -2000, 10000);
 
+            chartMoment = new CommonChartForm("力矩大小", new string[] { "机构力矩大小" }, -600, 200);
+
+            chartForce.Show(this);
+            chartMoment.Show(this);
+
+            //watchForm = new PointWatchForm(5, caculator);
+            //watchForm.Show(this);
 
             #endregion
 
@@ -130,7 +151,7 @@ namespace MachanismAnalysis.GUI
             bitmap = new Bitmap(Width, Height);
 
             graphics = Graphics.FromImage(bitmap);
-            
+
             // 开启抗锯齿
             graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
@@ -140,6 +161,7 @@ namespace MachanismAnalysis.GUI
 
                 currentPosition = (currentPosition - 0.05) % (2 * Math.PI);
                 CaculateKinematicInfo();
+                CaculateForceInfo();
 
                 // 开始绘图
                 Draw();
@@ -147,6 +169,33 @@ namespace MachanismAnalysis.GUI
                 // 双缓冲
                 Invalidate(new Rectangle(0, 0, Width, Height));
                 Update();
+
+                foreach (var item in watchForms)
+                {
+                    if(!item.Value.IsDisposed)
+                        item.Value.UpdateInfo();
+                }
+
+            };
+
+            MouseClick += (o, e) =>
+            {
+                for (int i = 0; i < 10; i++)
+                {
+                    var p = CreatePointF(caculator.GetPointsPosition(i));
+                    var epsilon = 10f;
+                    if(Math.Abs(p.X - e.X)<epsilon && Math.Abs(p.Y - e.Y) < epsilon)
+                    {
+                        if (!(watchForms.ContainsKey(i)&&watchForms[i].IsDisposed == false))
+                        {
+                            var c = new PointWatchForm(i, caculator);
+                            c.Show(this);
+                            watchForms.Add(i, c);
+                            c.UpdateInfo();
+                        }
+
+                    }
+                }
 
             };
 
@@ -163,7 +212,8 @@ namespace MachanismAnalysis.GUI
             var screenG = e.Graphics;
             screenG.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
             screenG.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-            screenG.DrawImage(bitmap, new System.Drawing.Point
+
+            screenG.DrawImage(bitmap, new Point
             {
                 X = 0,
                 Y = 0
@@ -245,12 +295,17 @@ namespace MachanismAnalysis.GUI
         private static class Pens
         {
             public static readonly Pen MechanismPen = new Pen(Color.Black, 3);
-            public static readonly Pen RodPen = new Pen(Color.FromArgb(180,0,0,0), 15)
-            {
-                DashStyle = System.Drawing.Drawing2D.DashStyle.Solid,
-
-
+            public static readonly Pen RodPen = new Pen(Color.FromArgb(180, 0, 0, 0), 15);
+            public static readonly Pen ForcePen = new Pen(Color.FromArgb(210, 255, 0, 0), 5) 
+            { 
+                EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor
             };
+            public static readonly Pen MomentPen = new Pen(Color.FromArgb(130, 0, 0, 210), 5)
+            {
+                EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor
+            };
+
+
 
         }
 
@@ -263,6 +318,7 @@ namespace MachanismAnalysis.GUI
             public static readonly Brush RevolveBrush = new SolidBrush(Color.White);
             public static readonly Brush MoveBrush = new SolidBrush(Color.LightYellow);
             public static readonly Brush TextBrush = new SolidBrush(Color.FromArgb(200, 255, 0, 0));
+            public static readonly Brush AssisantTextBrush = new SolidBrush(Color.FromArgb(120, 50, 50, 50));
 
         }
 
@@ -307,13 +363,13 @@ namespace MachanismAnalysis.GUI
 
         #region 绘图核心
 
-        private void DrawRod(Core.Point a, Core.Point b,Pen pen = null)
+        private void DrawRod(Core.Point a, Core.Point b, Pen pen = null)
         {
             if (pen == null) pen = Pens.RodPen;
 
             graphics.DrawLine(pen, CreatePointF(a), CreatePointF(b));
         }
-              
+
         private void DrawPrismaticPair(Core.Point p, double angle)
         {
 
@@ -355,7 +411,7 @@ namespace MachanismAnalysis.GUI
 
             if (n != null)
             {
-                graphics.DrawString(n.ToString(), new Font("Microsoft Yahei", 14), Brushes.TextBrush, new PointF
+                graphics.DrawString(n.ToString(), new Font(textFamilyName, 14), Brushes.TextBrush, new PointF
                 {
 
                     X = (int)ConvertToScreenX(x) + 20,
@@ -420,7 +476,7 @@ namespace MachanismAnalysis.GUI
 
         }
 
-        private void DrawFrame(Core.Point p,int? num = null)
+        private void DrawFrame(Core.Point p, int? num = null)
         {
 
             float x = (float)p.x;
@@ -470,6 +526,43 @@ namespace MachanismAnalysis.GUI
 
         }
 
+        private void DrawForce(Core.Point p, Core.Point size)
+        {
+            var start = CreatePointF(p);
+            var pf = CreatePointF(size);
+            var end = new PointF
+            {
+                X = start.X + pf.X * forceRate,
+                Y = start.Y + pf.Y * forceRate
+            };
+
+
+            graphics.DrawLine(Pens.ForcePen, start, end);
+            graphics.DrawString(Math.Sqrt(Math.Pow(size.x,2)+Math.Pow(size.y,2)).ToString("F3") + " N", new Font(textFamilyName, 8), Brushes.AssisantTextBrush, new PointF
+            {
+                X = start.X + pf.X * forceRate * 1.2f,
+                Y = start.Y + pf.Y * forceRate * 1.2f
+            });
+
+        }
+
+        private void DrawMoment(Core.Point p,double size)
+        {
+            int recSize = 40;
+
+            graphics.DrawArc(Pens.MomentPen, new Rectangle(new System.Drawing.Point
+            {
+                X = (int)ConvertToScreenX(p.x) - recSize / 2,
+                Y = (int)ConvertToScreenY(p.y) - recSize / 2
+            }, new Size(recSize, recSize)), 0, -(float)size / momentCircle * 360f);
+
+            graphics.DrawString(size.ToString("F3") + " N*m", new Font(textFamilyName, 8), Brushes.AssisantTextBrush, new PointF
+            {
+
+                X = ConvertToScreenX(p.x) + 10,
+                Y = ConvertToScreenY(p.y) + 10
+            });
+        }
 
         #endregion
 
@@ -492,30 +585,51 @@ namespace MachanismAnalysis.GUI
 
         private void DrawFrame(int n)
         {
-            DrawFrame(caculator.GetPointsPosition(n),n);
+            DrawFrame(caculator.GetPointsPosition(n), n);
         }
 
-        private void DrawPrismaticPair(int n,int p)
+        private void DrawPrismaticPair(int n, int p)
         {
 
             DrawPrismaticPair(caculator.GetPointsPosition(n), caculator.GetRodsAngularDisplacement(p));
 
         }
 
+        private void DrawMoment(int n)
+        {
+            DrawMoment(caculator.GetPointsPosition(n), caculator.GetFrameMoment(n));
+        }
+
+        private void DrawForce(int n)
+        {
+            DrawForce(caculator.GetPointsPosition(n), caculator.GetPointForce(n));
+        }
 
         #endregion
 
 
 
-        private void DrawPointChart(int n)
+        private void DrawChart()
         {
+            int n = 5;
             var num = Math.Abs(currentPosition);
+            bool clear = (num < 0.06);
+            chart.AddPoint(num, caculator.GetPointsPosition(n), caculator.GetPointsVelocity(n), caculator.GetPointsAcceleration(n), clear);
 
-            chart.AddPoint(num, caculator.GetPointsPosition(n), caculator.GetPointsVelocity(n), caculator.GetPointsAcceleration(n), num < 0.06);
+            chartForce.AddPoint(num, new double[]
+            {
+                caculator.GetPointForce(1).Size,
+                caculator.GetPointForce(2).Size,
+            }, clear);
+
+            chartMoment.AddPoint(num, new double[]
+            {
+                caculator.GetFrameMoment(2)
+            }, clear);
 
         }
 
-
+        
 
 
 
@@ -527,13 +641,18 @@ namespace MachanismAnalysis.GUI
         {
             caculator.ConfigurePoint(1, 0, 0, 0, 0, 0, 0);
 
-            caculator.ConfigurePoint(2, 0, 400, 0, 0, 0, 0);
+            caculator.ConfigurePoint(2, 0, lenO1O2, 0, 0, 0, 0);
 
             caculator.ConfigurePoint(6, 0, heightDC, 0, 0, 0, 0);
 
-            caculator.ConfigureRod(1, 0, rad, 0);
+            caculator.ConfigureRod(1, 0, -rad, 0);
 
             caculator.ConfigureRod(6, 0, 0, 0);
+
+            caculator.SetPointMass(8, 24);
+            caculator.SetPointMass(5, 90);
+            caculator.SetRodJ(2, 1.3);
+
         }
 
         private void CaculateKinematicInfo()
@@ -548,22 +667,11 @@ namespace MachanismAnalysis.GUI
             // RPR杆组
             double r2 = 0, vr2 = 0, ar2 = 0;
 
-            caculator.RPRKinematic(1, 1, 3, 2, 3, 1, ref r2, ref vr2, ref ar2);
+            caculator.RPRKinematic(1, 1, 3, 2, 3, 0, ref r2, ref vr2, ref ar2);
 
             // 求4点
 
             caculator.BasicPointKinematic(1, 4, 2, lenO2B);
-
-            //var theta = caculator.GetRodsAngularDisplacement(1);
-            //var p1 = caculator.GetPointsPosition(0);
-            //var OB_2 = lenOB_2;
-            //var O_1A = lenO_1A;
-
-
-            //caculator.SetPointsPosition(3, p1.x + OB_2 * Math.Cos(theta), p1.y + OB_2 * Math.Sin(theta));
-            //caculator.SetPointsVelocity(3, p1.x + OB_2 * Math.Cos(theta), p1.y + OB_2 * Math.Sin(theta));
-            //caculator.SetPointsAcceleration(3, p1.x + OB_2 * Math.Cos(theta), p1.y + OB_2 * Math.Sin(theta));
-
 
 
             // RRP杆组
@@ -573,17 +681,34 @@ namespace MachanismAnalysis.GUI
 
             caculator.PrintPointInfo(5);
 
-            DrawPointChart(5);
         }
+
+        private void CaculateForceInfo()
+        {
+            caculator.BarKinematic(4, 7, 4, lenO2B * rate / 2, 0);
+            caculator.RRPForce(4, 10, 5, 7, 5, 0, 5, 5, 4, 5);
+            caculator.BarKinematic(1, 8, 2, lenO2B / 2, 0);
+            caculator.RPRForce(1, 3, 8, 3, 4, 0, 0, 2, 3);
+            caculator.BarKinematic(2, 9, 1, lenO1A / 2, 0);
+
+
+            caculator.BarForce(2, 2, 3, 1);
+
+            //int pSNum = 2;
+            //var x = caculator.GetPointForce(pSNum);
+
+            //Console.WriteLine("{0:F4}\t{1:F4}\t{2:F4}", x.x, x.y, caculator.GetFrameMoment(pSNum));
+        }
+
 
         private void Draw()
         {
 
             graphics.Clear(Color.White);
 
-            DrawRod(2,3);
+            DrawRod(2, 3);
 
-            DrawRod(1,4);
+            DrawRod(1, 4);
 
 
             //画水平杆
@@ -591,16 +716,16 @@ namespace MachanismAnalysis.GUI
 
             DrawRod(new Core.Point
             {
-                x = p5.x - 200,
+                x = p5.x - 0.2,
                 y = p5.y
             }, new Core.Point
             {
-                x = p5.x + 300,
+                x = p5.x + 0.3,
                 y = p5.y
             });
 
 
-            DrawRod(4,5);
+            DrawRod(4, 5);
 
             DrawFrame(1);
 
@@ -608,7 +733,7 @@ namespace MachanismAnalysis.GUI
 
             DrawPrismaticFrame(6);
 
-            DrawPrismaticPair(3,2);
+            DrawPrismaticPair(3, 2);
 
             DrawRevolutePair(3);
 
@@ -616,7 +741,14 @@ namespace MachanismAnalysis.GUI
 
             DrawRevolutePair(5);
 
+            DrawForce(2);
+            DrawForce(1);
+            
+            DrawForce(4);
+            DrawForce(10);
+            DrawMoment(2);
 
+            DrawChart();
         }
 
         #endregion

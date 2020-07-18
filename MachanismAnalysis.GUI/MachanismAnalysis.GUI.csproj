@@ -53,6 +53,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CommonChartForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="CommonChartForm.Designer.cs">
+      <DependentUpon>CommonChartForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="PointChartForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -66,6 +72,15 @@
     <Compile Include="PointHelper.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="PointWatchForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PointWatchForm.Designer.cs">
+      <DependentUpon>PointWatchForm.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Include="CommonChartForm.resx">
+      <DependentUpon>CommonChartForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="PointChartForm.resx">
       <DependentUpon>PointChartForm.cs</DependentUpon>
     </EmbeddedResource>
@@ -82,6 +97,9 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
+    <EmbeddedResource Include="PointWatchForm.resx">
+      <DependentUpon>PointWatchForm.cs</DependentUpon>
+    </EmbeddedResource>
     <None Include="..\.editorconfig">
       <Link>.editorconfig</Link>
     </None>

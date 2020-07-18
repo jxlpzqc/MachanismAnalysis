@@ -53,16 +53,16 @@ namespace MachanismAnalysis.GUI
             chartMain.ChartAreas[0].AxisX.Maximum = 2 * Math.PI;
             chartMain.ChartAreas[0].AxisX.Name = "角度 (rad)";
 
-            chartMain.ChartAreas[0].AxisY.Minimum = -5000;
-            chartMain.ChartAreas[0].AxisY.Maximum = 5000;
+            chartMain.ChartAreas[0].AxisY.Minimum = -5;
+            chartMain.ChartAreas[0].AxisY.Maximum = 5;
 
             chartMain.Series.Clear();
-            chartMain.Series.Add("位置X (mm)");
-            chartMain.Series.Add("位置Y (mm)");
-            chartMain.Series.Add("速度X (mm/s)");
-            chartMain.Series.Add("速度Y (mm/s)");
-            chartMain.Series.Add("加速度X (mm/s^2)");
-            chartMain.Series.Add("加速度Y (mm/s^2)");
+            chartMain.Series.Add("位置X");
+            chartMain.Series.Add("位置Y");
+            chartMain.Series.Add("速度X");
+            chartMain.Series.Add("速度Y");
+            chartMain.Series.Add("加速度X");
+            chartMain.Series.Add("加速度Y");
             for (int i = 0; i < 6; i++)
             {
                 chartMain.Series[i].ChartType = SeriesChartType.Line;

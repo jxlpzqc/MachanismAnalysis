@@ -1,5 +1,11 @@
 #pragma once
 #include "Point.h"
+#include "core.h"
+
+
+extern double sm[10], sj[10];
+
+void extf(double p[][3], double vp[][3], double ap[][3], double* t, double* w, double* e, int nexf, double fe[][3]);
 
 namespace MachanismAnalysis {
 	namespace Core {
@@ -22,10 +28,13 @@ namespace MachanismAnalysis {
 			/// <param name="len">³¤¶È</param>
 			void BasicPointKinematic(int nBasic, int nToCompute, int p, double len);
 
-
-			// void Caculate();
+			void BarForce(int n1, int ns1, int nn1, int k1);			
+			void RPRForce(int n1, int n2, int ns1, int ns2, int nn1, int nn2, int nexf, int k1, int k2);
+			void RRPForce(int n1, int n2, int n3, int ns1, int ns2, int nn1, int nn2, int nexf, int k1, int k2); 
 
 			/* Getters And Setters */
+			void SetPointMass(int n, double mass);			
+			void SetRodJ(int k, double j);
 			void SetPointsPosition(int n, double x, double y);
 			void SetPointsVelocity(int n, double x, double y);
 			void SetPointsAcceleration(int n, double x, double y);
@@ -38,15 +47,15 @@ namespace MachanismAnalysis {
 			double GetRodsAngularDisplacement(int k);
 			double GetRodsAngularVelocity(int k);
 			double GetRodsAngularAcceleration(int k);
-			
+			void SetPointForce(int n, double x, double y);
+			Point^ GetPointForce(int n);
+			double GetFrameMoment(int n);
 			void ConfigurePoint(int n, Point^ pos, Point^ vel, Point^ acc);
 			void ConfigurePoint(int n, double posX, double posY, double velX, double velY, double accX, double accY);
 			void ConfigureRod(int k, double pos, double vel, double acc);
 
 			void PrintPointInfo(int n);
 			void PrintRodInfo(int k);
-
-
 
 			Caculator();
 			Caculator(int pNum, int rNum);
@@ -57,6 +66,9 @@ namespace MachanismAnalysis {
 			double(*pointsPosition)[3];
 			double(*pointsVelocity)[3];
 			double(*pointsAcceleration)[3];
+			
+			double(*pointsForce)[3];
+			double* framesMoment;
 
 			double* rodsAngularDisplacement;
 			double* rodsAngularVelocity;

@@ -7,6 +7,10 @@ namespace MachanismAnalysis {
 			double y;
 			Point(double x, double y);
 			Point();
+			property double Size {
+				double get();
+			}
+
 		};
 	
 	}
